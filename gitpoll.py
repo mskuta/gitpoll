@@ -13,19 +13,20 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+import sqlite3
 import sys
 
 import git
 import requests
-import sqlite3
 import yaml
 
 
 def get_remote_git_ref(remote_url, branch="master"):
-    g = git.Git(".")
-    ref_info = g.ls_remote(remote_url, "refs/heads/" + branch).split("\t")
-    if ref_info[0]:
+    git_repo = git.Git(".")
+    ref_info = git_repo.ls_remote(remote_url, "refs/heads/" + branch).split("\t")
+    if ref_info:
         return ref_info[0]
+    return None
 
 
 def check_db(db_path):
@@ -51,6 +52,7 @@ def get_last_git_ref(db_path, job_name, remote_url, branch):
     row = cur.fetchone()
     if row:
         return row[0]
+    return None
 
 
 def set_last_git_ref(db_path, job_name, remote_url, branch, curr_ref):
@@ -70,8 +72,8 @@ def set_last_git_ref(db_path, job_name, remote_url, branch, curr_ref):
 
 
 def exec_action_url(action_url):
-    print("Executing action: %s" % action_url)
-    response = requests.get(action_url)
+    print(f"Executing action: {action_url}")
+    response = requests.get(action_url, timeout=10)
     response.raise_for_status()
 
 
@@ -79,7 +81,7 @@ def process_job(db_path, job_name, job_config):
     run_action = True
     action_url = job_config.get("action_url")
     if not action_url:
-        raise ValueError("action_url is required for job %s" % job_name)
+        raise ValueError(f"action_url is required for job {job_name}")
 
     for repo in job_config.get("repos", []):
         remote_url = repo.get("remote_url")
@@ -90,16 +92,15 @@ def process_job(db_path, job_name, job_config):
         curr_ref = get_remote_git_ref(remote_url, branch)
         if not curr_ref:
             raise Exception(
-                "Cannot find a ref for git repo %(remote_url)s, "
-                "branch %(branch)s, make sure the branch exists"
-                % {"remote_url": remote_url, "branch": branch}
+                f"Cannot find a ref for git repo {remote_url}, "
+                "branch {branch}, make sure the branch exists"
             )
 
         previous_ref = get_last_git_ref(db_path, job_name, remote_url, branch)
 
-        print("Repo url: %s" % remote_url)
-        print("Curr ref: %s" % curr_ref)
-        print("Previous ref: %s" % previous_ref)
+        print(f"Repo url: {remote_url}")
+        print(f"Curr ref: {curr_ref}")
+        print(f"Previous ref: {previous_ref}")
 
         if curr_ref != previous_ref:
             if run_action:
@@ -110,12 +111,12 @@ def process_job(db_path, job_name, job_config):
 
 def main():
     if len(sys.argv) != 2:
-        print("Usage: %s <config.yaml>" % sys.argv[0])
+        print(f"Usage: {sys.argv[0]} <config.yaml>")
         return
 
     config_file = sys.argv[1]
-    with open(config_file, "rb") as s:
-        config = yaml.load(s)
+    with open(config_file, "rb") as stream:
+        config = yaml.load(stream)
 
     db_path = config.get("config", {}).get("db", "gitpoll.s3db")
     check_db(db_path)
@@ -125,7 +126,7 @@ def main():
         try:
             process_job(db_path, job_name, jobs[job_name])
         except Exception as ex:
-            print("job failed: %s" % job_name)
+            print(f"job failed: {job_name}")
             print(ex)
 
 
