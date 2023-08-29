@@ -14,20 +14,33 @@
 #    under the License.
 
 import sqlite3
+import subprocess
 import sys
 from pathlib import Path
 
-import git
 import requests
 import yaml
 
 
-def get_remote_git_ref(remote_url, branch="master"):
-    git_repo = git.Git(".")
-    ref_info = git_repo.ls_remote(remote_url, "refs/heads/" + branch).split("\t")
-    if ref_info:
-        return ref_info[0]
-    return None
+class RefNotFoundError(Exception):
+    pass
+
+
+def get_remote_git_ref(remote_url, branch):
+    result = subprocess.run(
+        ["git", "ls-remote", "--heads", "--refs", remote_url, branch],
+        capture_output=True,
+        check=True,
+        env={"GIT_TERMINAL_PROMPT": "0"},
+        text=True,
+    )
+
+    nrefs = result.stdout.count("\n")
+    if nrefs == 1:
+        return result.stdout.split("\t")[0]
+    if nrefs == 0:
+        raise RefNotFoundError("No ref found")
+    raise RefNotFoundError("More than one ref found")
 
 
 def check_db(db_path):
@@ -82,7 +95,7 @@ def process_job(db_path, job_name, job_config):
     run_action = True
     action_url = job_config.get("action_url")
     if not action_url:
-        raise ValueError(f"action_url is required for job {job_name}")
+        raise ValueError("action_url is required for a job")
 
     for repo in job_config.get("repos", []):
         remote_url = repo.get("remote_url")
@@ -90,20 +103,21 @@ def process_job(db_path, job_name, job_config):
             raise ValueError("remote_url is required for a repository")
         branch = repo.get("branch", "master")
 
-        curr_ref = get_remote_git_ref(remote_url, branch)
-        if not curr_ref:
-            raise Exception(
-                f"Cannot find a ref for git repo {remote_url}, "
-                "branch {branch}, make sure the branch exists"
+        try:
+            curr_ref = get_remote_git_ref(remote_url, branch)
+        except RefNotFoundError as ex:
+            print(
+                f"Latest commit unknown for branch {branch} in repo {remote_url}: {ex}"
             )
+            continue
 
-        previous_ref = get_last_git_ref(db_path, job_name, remote_url, branch)
+        prev_ref = get_last_git_ref(db_path, job_name, remote_url, branch)
 
         print(f"Repo url: {remote_url}")
         print(f"Curr ref: {curr_ref}")
-        print(f"Previous ref: {previous_ref}")
+        print(f"Prev ref: {prev_ref}")
 
-        if curr_ref != previous_ref:
+        if curr_ref != prev_ref:
             if run_action:
                 exec_action_url(action_url)
                 run_action = False
