@@ -16,6 +16,7 @@
 import sqlite3
 import subprocess
 import sys
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 import requests
@@ -137,12 +138,18 @@ def main():
     check_db(db_path)
 
     jobs = config.get("jobs", {})
-    for job_name in jobs:
-        try:
-            process_job(db_path, job_name, jobs[job_name])
-        except Exception as ex:
-            print(f"job failed: {job_name}")
-            print(ex)
+    with ThreadPoolExecutor() as executor:
+        futures = {
+            executor.submit(process_job, db_path, job_name, jobs[job_name]): job_name
+            for job_name in jobs
+        }
+        for future in as_completed(futures):
+            job_name = futures[future]
+            ex = future.exception()
+            if ex:
+                print(f"Job {job_name} failed: {ex}")
+            else:
+                print(f"Job {job_name} finished")
 
 
 if __name__ == "__main__":
