@@ -1,5 +1,5 @@
-config:
-  db_path: gitpoll.s3db
+db:
+  path: gitpoll.s3db
 jobs:
   openstack_kilo:
     repos:
@@ -8,4 +8,3 @@ jobs:
       - remote_url: https://github.com/openstack/neutron
         branch: stable/kilo
     action_url: http://myjenkins:8080/job/myjob/build?token=BigSecret
-

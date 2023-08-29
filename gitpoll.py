@@ -15,6 +15,7 @@
 
 import sqlite3
 import sys
+from pathlib import Path
 
 import git
 import requests
@@ -111,14 +112,14 @@ def process_job(db_path, job_name, job_config):
 
 def main():
     if len(sys.argv) != 2:
-        print(f"Usage: {sys.argv[0]} <config.yaml>")
+        print(f"Usage: {sys.argv[0]} CONFIGFILE")
         return
 
     config_file = sys.argv[1]
     with open(config_file, "rb") as stream:
-        config = yaml.load(stream)
+        config = yaml.safe_load(stream)
 
-    db_path = config.get("config", {}).get("db", "gitpoll.s3db")
+    db_path = Path(config.get("db", {}).get("path", "gitpoll.s3db")).expanduser()
     check_db(db_path)
 
     jobs = config.get("jobs", {})
