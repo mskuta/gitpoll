@@ -1,10 +1,14 @@
 db:
   path: gitpoll.s3db
 jobs:
-  openstack_kilo:
+  nitter:
+    repos:
+      - remote_url: https://github.com/zedeus/nitter
+    action_cmd: ~/build-nitter
+  openstack:
     repos:
       - remote_url: https://github.com/openstack/nova
-        branch: stable/kilo
+        branch: stable/zed
       - remote_url: https://github.com/openstack/neutron
-        branch: stable/kilo
+        branch: stable/zed
     action_url: http://myjenkins:8080/job/myjob/build?token=BigSecret

@@ -86,6 +86,13 @@ def set_last_git_ref(db_path, job_name, remote_url, branch, curr_ref):
     conn.commit()
 
 
+def exec_action_cmd(action_cmd):
+    print(f"Executing action: {action_cmd}")
+    # pylint: disable-next=subprocess-run-check
+    result = subprocess.run(action_cmd, shell=True)
+    result.check_returncode()
+
+
 def exec_action_url(action_url):
     print(f"Executing action: {action_url}")
     response = requests.get(action_url, timeout=10)
@@ -94,9 +101,10 @@ def exec_action_url(action_url):
 
 def process_job(db_path, job_name, job_config):
     run_action = True
+    action_cmd = job_config.get("action_cmd")
     action_url = job_config.get("action_url")
-    if not action_url:
-        raise ValueError("action_url is required for a job")
+    if (action_cmd and action_url) or not (action_cmd or action_url):
+        raise ValueError("Either action_cmd or action_url is required for a job")
 
     for repo in job_config.get("repos", []):
         remote_url = repo.get("remote_url")
@@ -120,7 +128,10 @@ def process_job(db_path, job_name, job_config):
 
         if curr_ref != prev_ref:
             if run_action:
-                exec_action_url(action_url)
+                if action_cmd:
+                    exec_action_cmd(action_cmd)
+                else:
+                    exec_action_url(action_url)
                 run_action = False
             set_last_git_ref(db_path, job_name, remote_url, branch, curr_ref)
 
