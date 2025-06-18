@@ -49,10 +49,10 @@ def check_db(db_path):
     cur = conn.cursor()
     cur.execute(
         "CREATE TABLE IF NOT EXISTS jobs("
-        "job_name varchar(200), "
-        "remote_url varchar(400), "
-        "branch varchar(400), "
-        "last_ref varchar(100) NOT NULL, "
+        "job_name TEXT, "
+        "remote_url TEXT, "
+        "branch TEXT, "
+        "last_ref TEXT NOT NULL, "
         "PRIMARY KEY (job_name, remote_url, branch))"
     )
 
