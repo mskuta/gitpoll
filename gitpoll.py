@@ -29,7 +29,7 @@ class RefNotFoundError(Exception):
 
 def get_remote_git_ref(remote_url, branch):
     result = subprocess.run(
-        ["git", "ls-remote", "--heads", "--refs", remote_url, branch],
+        ["git", "ls-remote", "--heads", "--quiet", "--refs", remote_url, branch],
         capture_output=True,
         check=True,
         env={"GIT_TERMINAL_PROMPT": "0"},
