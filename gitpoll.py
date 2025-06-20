@@ -45,45 +45,34 @@ def get_remote_git_ref(remote_url, branch):
 
 
 def check_db(db_path):
-    conn = sqlite3.connect(db_path)
-    cur = conn.cursor()
-    cur.execute(
-        "CREATE TABLE IF NOT EXISTS jobs("
-        "job_name TEXT, "
-        "remote_url TEXT, "
-        "branch TEXT, "
-        "last_ref TEXT NOT NULL, "
-        "PRIMARY KEY (job_name, remote_url, branch))"
-    )
+    with sqlite3.connect(db_path) as conn:
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS jobs(
+            job_name TEXT,
+            remote_url TEXT,
+            branch TEXT,
+            last_ref TEXT NOT NULL,
+            PRIMARY KEY (job_name, remote_url, branch))
+        """)
 
 
 def get_last_git_ref(db_path, job_name, remote_url, branch):
-    conn = sqlite3.connect(db_path)
-    cur = conn.cursor()
-    cur.execute(
-        "SELECT last_ref FROM jobs WHERE job_name=? AND remote_url=? AND branch=?",
-        (job_name, remote_url, branch),
-    )
-    row = cur.fetchone()
-    if row:
-        return row[0]
-    return None
+    with sqlite3.connect(db_path) as conn:
+        row = conn.execute(
+            "SELECT last_ref FROM jobs WHERE job_name=? AND remote_url=? AND branch=?",
+            (job_name, remote_url, branch)
+        ).fetchone()
+        return row[0] if row else None
 
 
 def set_last_git_ref(db_path, job_name, remote_url, branch, curr_ref):
-    conn = sqlite3.connect(db_path)
-    cur = conn.cursor()
-    cur.execute(
-        "UPDATE jobs set last_ref=? WHERE job_name=? AND remote_url=? AND branch=?",
-        (curr_ref, job_name, remote_url, branch),
-    )
-    if not cur.rowcount:
-        cur.execute(
-            "INSERT INTO jobs (job_name, remote_url, branch, last_ref) "
-            "VALUES (?, ?, ?, ?)",
-            (job_name, remote_url, branch, curr_ref),
-        )
-    conn.commit()
+    with sqlite3.connect(db_path) as conn:
+        conn.execute("""
+            INSERT INTO jobs (job_name, remote_url, branch, last_ref)
+            VALUES (?, ?, ?, ?)
+            ON CONFLICT (job_name, remote_url, branch)
+            DO UPDATE SET last_ref=excluded.last_ref
+        """, (job_name, remote_url, branch, curr_ref))
 
 
 def exec_action_cmd(action_cmd):
