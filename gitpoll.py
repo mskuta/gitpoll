@@ -13,9 +13,9 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+import argparse
 import sqlite3
 import subprocess
-import sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
@@ -125,13 +125,20 @@ def process_job(db_path, job_name, job_config):
             set_last_git_ref(db_path, job_name, remote_url, branch, curr_ref)
 
 
-def main():
-    if len(sys.argv) != 2:
-        print(f"Usage: {sys.argv[0]} CONFIGFILE")
-        return
+def parse_args():
+    parser = argparse.ArgumentParser(
+        description="Polls git repositories and runs actions on updates."
+    )
+    parser.add_argument(
+        "config_file", metavar="CONFIGFILE", help="Path to the YAML config file"
+    )
+    return parser.parse_args()
 
-    config_file = sys.argv[1]
-    with open(config_file, "rb") as stream:
+
+def main():
+    args = parse_args()
+    config_path = Path(args.config_file).expanduser()
+    with config_path.open("rb") as stream:
         config = yaml.safe_load(stream)
 
     db_path = Path(config.get("db", {}).get("path", "gitpoll.s3db")).expanduser()
