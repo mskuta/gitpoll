@@ -14,6 +14,7 @@
 #    under the License.
 
 import argparse
+import logging
 import sqlite3
 import subprocess
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -76,14 +77,14 @@ def set_last_git_ref(db_path, job_name, remote_url, branch, curr_ref):
 
 
 def exec_action_cmd(action_cmd):
-    print(f"Executing action: {action_cmd}")
+    logger.info("Executing action: %s", action_cmd)
     # pylint: disable-next=subprocess-run-check
     result = subprocess.run(action_cmd, shell=True)
     result.check_returncode()
 
 
 def exec_action_url(action_url):
-    print(f"Executing action: {action_url}")
+    logger.info("Executing action: %s", action_url)
     response = requests.get(action_url, timeout=10)
     response.raise_for_status()
 
@@ -104,16 +105,16 @@ def process_job(db_path, job_name, job_config):
         try:
             curr_ref = get_remote_git_ref(remote_url, branch)
         except RefNotFoundError as ex:
-            print(
-                f"Latest commit unknown for branch {branch} in repo {remote_url}: {ex}"
+            logger.warning(
+                "Latest commit unknown for branch %s in repo %s: %s", branch, remote_url, ex
             )
             continue
 
         prev_ref = get_last_git_ref(db_path, job_name, remote_url, branch)
 
-        print(f"Repo url: {remote_url}")
-        print(f"Curr ref: {curr_ref}")
-        print(f"Prev ref: {prev_ref}")
+        logger.info("Repo url: %s", remote_url)
+        logger.info("Curr ref: %s", curr_ref)
+        logger.info("Prev ref: %s", prev_ref)
 
         if curr_ref != prev_ref:
             if run_action:
@@ -154,10 +155,12 @@ def main():
             job_name = futures[future]
             ex = future.exception()
             if ex:
-                print(f"Job {job_name} failed: {ex}")
+                logger.error("Job %s failed: %s", job_name, ex)
             else:
-                print(f"Job {job_name} finished")
+                logger.info("Job %s finished", job_name)
 
 
+logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
+logger = logging.getLogger(__name__)
 if __name__ == "__main__":
     main()
