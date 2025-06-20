@@ -145,6 +145,7 @@ def main():
     db_path = Path(config.get("db", {}).get("path", "gitpoll.s3db")).expanduser()
     check_db(db_path)
 
+    exit_code = 0
     jobs = config.get("jobs", {})
     with ThreadPoolExecutor() as executor:
         futures = {
@@ -156,11 +157,13 @@ def main():
             ex = future.exception()
             if ex:
                 logger.error("Job %s failed: %s", job_name, ex)
+                exit_code = 1
             else:
                 logger.info("Job %s finished", job_name)
+    return exit_code
 
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())
